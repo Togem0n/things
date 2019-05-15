@@ -40,13 +40,14 @@ process_execute (const char *file_name)
 
   //////////////////////////////////////////////
 
-  char *name = malloc(strlen(file_name)+1);
+  char *name;
+  name = malloc(strlen(fn_copy)+1);
   char *save_ptr;
   if(name == NULL){
     return TID_ERROR;
   }
 
-  strlcpy(name, file_name, PGSIZE);
+  strlcpy(name, fn_copy, PGSIZE);
   name = strtok_r(name, " ", &save_ptr);
 
 
@@ -60,7 +61,8 @@ process_execute (const char *file_name)
   free(name);
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy);
-    free(name); 
+    free(name);
+    return -1;
   }
   return tid;
 }
@@ -276,7 +278,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   //file_name = argv[0];
 
   /* Open executable file. */
-  file = filesys_open (argv[0]);
+  file = filesys_open (name);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", argv[0]);
@@ -494,33 +496,32 @@ setup_stack (void **esp, char **argv, int argc)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success){
-        *esp = PHYS_BASE;
-       	for(i = argc -1;i>=0;i--){
-	  *esp = *esp - (strlen(argv[i])+1);
-	  addrs[i] = (uint32_t *)*esp;
-   	  memcpy(*esp, argv[i], strlen(argv[i]+1)); 
-	}
+          *esp = PHYS_BASE;
+          for(i = argc -1;i>=0;i--){
+              *esp = *esp - (strlen(argv[i])+1);
+              addrs[i] = (uint32_t *)*esp;
+              memcpy(*esp, argv[i], strlen(argv[i]+1));
+          }
        
-   	while(align_tag & ((uintptr_t)*esp)){
-	  *esp = *esp -1;
-	}
+          while(align_tag & ((uintptr_t)*esp)){
+              *esp = *esp -1;
+          }
 
- 	*esp = *esp - 4;
-     	*(int *)*esp = 0;
+          *esp = *esp - 4;
+          *(int *)*esp = 0;
 
- 	for(i=argc-1;i>=0;i){
- 	  *esp = *esp - 4;
- 	  (*(uint32_t **)(*esp)) = addrs[i];
-	}
+          for(i=argc-1;i>=0;i--){
+              *esp = *esp - 4;
+              (*(uint32_t **)(*esp)) = addrs[i];
+          }
 
-	*esp = *esp - 4;
-	(*(uintptr_t **)(*esp)) = (*esp + 4);
-	*esp = *esp - 4;
-	*(int *)(*esp) = argc ;
-	*esp = *esp - 4;
-	(*(int *)(*esp)) = 0;
-      }
-      else{
+          *esp = *esp - 4;
+          (*(uintptr_t **)(*esp)) = (*esp + 4);
+          *esp = *esp - 4;
+          *(int *)(*esp) = argc ;
+          *esp = *esp - 4;
+          (*(int *)(*esp)) = 0;
+      }else{
         palloc_free_page (kpage);
       }
     }
